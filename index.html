@@ -459,7 +459,7 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
   }
 
   .wish-item {
@@ -473,6 +473,7 @@
     text-align: left;
     cursor: pointer;
     transition: all 0.3s;
+    user-select: none;
   }
 
   .wish-item:hover {
@@ -482,7 +483,15 @@
 
   .wish-item.done {
     opacity: 0.5;
+  }
+
+  .wish-item.done .w-text {
     text-decoration: line-through;
+  }
+
+  .wish-item.deleting {
+    border-color: #ef4444;
+    background: rgba(239,68,68,0.1);
   }
 
   .wish-item .w-icon { font-size: 22px; flex-shrink: 0; }
@@ -508,6 +517,73 @@
   .wish-item.done .w-check {
     background: var(--pink);
     border-color: var(--pink);
+  }
+
+  .wish-item .w-del {
+    font-size: 18px;
+    color: #ef4444;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .wish-item.deleting .w-del {
+    opacity: 1;
+  }
+
+  .wish-add-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .wish-add-row input {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,107,157,0.25);
+    border-radius: 12px;
+    color: #ffd6e7;
+    font-size: 15px;
+    font-family: inherit;
+    padding: 12px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .wish-add-row input:focus {
+    border-color: var(--pink);
+  }
+
+  #wish-emoji {
+    width: 60px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  #wish-input {
+    flex: 1;
+  }
+
+  .wish-add-btn {
+    background: linear-gradient(135deg, var(--rose), var(--purple));
+    border: none;
+    color: #fff;
+    width: 46px;
+    border-radius: 12px;
+    font-size: 24px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s;
+  }
+
+  .wish-add-btn:active {
+    transform: scale(0.93);
+  }
+
+  .wish-hint {
+    font-size: 12px;
+    color: #7a5068;
+    text-align: center;
+    margin-bottom: 8px;
   }
 
   /* ─── Sparkle animation ─── */
@@ -691,9 +767,13 @@
       </div>
 
       <p class="wishes-title">🌟 我们的心愿清单</p>
-      <div class="wishes-list" id="wishes-list">
-        <!-- 心愿项目由 JS 渲染 -->
+      <div class="wishes-list" id="wishes-list"></div>
+      <div class="wish-add-row">
+        <input id="wish-emoji" type="text" placeholder="🌟" maxlength="2">
+        <input id="wish-input" type="text" placeholder="写下一个心愿...">
+        <button class="wish-add-btn" onclick="addWish()">+</button>
       </div>
+      <p class="wish-hint">长按心愿可以删除</p>
     </div>
   </div>
 </div>
@@ -702,15 +782,117 @@
   // ── 在一起的日期，改成你们的纪念日 ──
   const TOGETHER_DATE = new Date('2018-03-15T00:00:00');
 
-  // ── 心愿清单，可自由修改 ──
-  const WISHES = [
-    { icon: '🗼', text: '一起去看巴黎铁塔' },
-    { icon: '🌊', text: '一起看一次日出' },
-    { icon: '🎠', text: '在游乐园玩到天黑' },
-    { icon: '🍜', text: '一起学做一道拿手菜' },
-    { icon: '🏕️', text: '一起露营看星星' },
-    { icon: '🎬', text: '在电影院看一部烂片然后互相吐槽' },
+  // ── Wishes（存储结构：[{icon, text, done}, ...]）──
+  const DEFAULT_WISHES = [
+    { icon: '🗼', text: '一起去看巴黎铁塔', done: false },
+    { icon: '🌊', text: '一起看一次日出', done: false },
+    { icon: '🎠', text: '在游乐园玩到天黑', done: false },
+    { icon: '🍜', text: '一起学做一道拿手菜', done: false },
+    { icon: '🏕️', text: '一起露营看星星', done: false },
+    { icon: '🎬', text: '在电影院看一部烂片然后互相吐槽', done: false },
   ];
+
+  function loadWishes() {
+    const saved = localStorage.getItem('wishes_v2');
+    return saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(DEFAULT_WISHES));
+  }
+
+  function saveWishes(wishes) {
+    localStorage.setItem('wishes_v2', JSON.stringify(wishes));
+  }
+
+  function renderWishes() {
+    const wishes = loadWishes();
+    const container = document.getElementById('wishes-list');
+    container.innerHTML = '';
+    wishes.forEach((w, i) => {
+      const el = document.createElement('div');
+      el.className = 'wish-item' + (w.done ? ' done' : '');
+      el.innerHTML = `
+        <span class="w-icon">${w.icon}</span>
+        <span class="w-text">${w.text}</span>
+        <div class="w-check">${w.done ? '✓' : ''}</div>
+        <span class="w-del">🗑</span>
+      `;
+
+      // 点击：切换完成状态
+      el.querySelector('.w-check').addEventListener('click', e => {
+        e.stopPropagation();
+        toggleWish(i);
+      });
+      el.querySelector('.w-text').addEventListener('click', () => toggleWish(i));
+      el.querySelector('.w-icon').addEventListener('click', () => toggleWish(i));
+
+      // 长按：进入删除模式
+      let pressTimer;
+      const startPress = () => {
+        pressTimer = setTimeout(() => {
+          el.classList.add('deleting');
+        }, 500);
+      };
+      const cancelPress = () => clearTimeout(pressTimer);
+
+      el.addEventListener('mousedown', startPress);
+      el.addEventListener('touchstart', startPress, { passive: true });
+      el.addEventListener('mouseup', cancelPress);
+      el.addEventListener('touchend', cancelPress);
+      el.addEventListener('mouseleave', cancelPress);
+
+      // 点删除图标
+      el.querySelector('.w-del').addEventListener('click', e => {
+        e.stopPropagation();
+        deleteWish(i);
+      });
+
+      // 点其他地方取消删除模式
+      el.addEventListener('click', () => {
+        if (el.classList.contains('deleting')) {
+          el.classList.remove('deleting');
+        }
+      });
+
+      container.appendChild(el);
+    });
+  }
+
+  function toggleWish(i) {
+    const wishes = loadWishes();
+    wishes[i].done = !wishes[i].done;
+    saveWishes(wishes);
+    renderWishes();
+    if (wishes[i].done) spawnSparkles();
+  }
+
+  function deleteWish(i) {
+    const wishes = loadWishes();
+    wishes.splice(i, 1);
+    saveWishes(wishes);
+    renderWishes();
+  }
+
+  function addWish() {
+    const iconEl = document.getElementById('wish-emoji');
+    const textEl = document.getElementById('wish-input');
+    const text = textEl.value.trim();
+    if (!text) { textEl.focus(); return; }
+    const icon = iconEl.value.trim() || '🌟';
+    const wishes = loadWishes();
+    wishes.push({ icon, text, done: false });
+    saveWishes(wishes);
+    renderWishes();
+    textEl.value = '';
+    iconEl.value = '';
+    spawnSparkles();
+  }
+
+  // 回车添加
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('wish-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') addWish();
+    });
+  });
+
+  renderWishes();
 
   // ── 情话库 ──
   const QUOTES = {
@@ -780,37 +962,6 @@
 
   setInterval(updateTimer, 1000);
   updateTimer();
-
-  // ── Render wishes ──
-  function renderWishes() {
-    const saved = JSON.parse(localStorage.getItem('wishes_done') || '[]');
-    const container = document.getElementById('wishes-list');
-    container.innerHTML = '';
-    WISHES.forEach((w, i) => {
-      const done = saved.includes(i);
-      const el = document.createElement('div');
-      el.className = 'wish-item' + (done ? ' done' : '');
-      el.innerHTML = `
-        <span class="w-icon">${w.icon}</span>
-        <span class="w-text">${w.text}</span>
-        <div class="w-check">${done ? '✓' : ''}</div>
-      `;
-      el.onclick = () => toggleWish(i);
-      container.appendChild(el);
-    });
-  }
-
-  function toggleWish(i) {
-    const saved = JSON.parse(localStorage.getItem('wishes_done') || '[]');
-    const idx = saved.indexOf(i);
-    if (idx === -1) saved.push(i);
-    else saved.splice(idx, 1);
-    localStorage.setItem('wishes_done', JSON.stringify(saved));
-    renderWishes();
-    spawnSparkles();
-  }
-
-  renderWishes();
 
   // ── Page navigation ──
   function showPage(name) {
