@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "io.github.gaochang_bjtu.twa",
+        "sha256_cert_fingerprints": ["77:D3:36:5E:C3:93:71:1D:C6:03:60:5F:E2:97:AC:90:49:A3:5E:B0:47:14:4D:FE:FE:42:65:89:BF:60:08:1D"]
+      }
+    }]
