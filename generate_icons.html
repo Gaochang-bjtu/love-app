@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>生成图标</title></head>
+<body>
+<canvas id="c192" width="192" height="192" style="display:none"></canvas>
+<canvas id="c512" width="512" height="512" style="display:none"></canvas>
+<p id="msg">正在生成图标，请稍候...</p>
+<script>
+function drawIcon(canvas) {
+  const s = canvas.width;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, s, s);
+  grad.addColorStop(0, '#1a0a14');
+  grad.addColorStop(1, '#3d1030');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.roundRect(0, 0, s, s, s * 0.22);
+  ctx.fill();
+
+  // heart
+  const hs = s * 0.52;
+  const cx = s / 2, cy = s / 2 - s * 0.02;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(hs / 100, hs / 100);
+  const hg = ctx.createLinearGradient(-50, -40, 50, 50);
+  hg.addColorStop(0, '#ff6b9d');
+  hg.addColorStop(1, '#c084fc');
+  ctx.fillStyle = hg;
+  ctx.beginPath();
+  ctx.moveTo(0, 35);
+  ctx.bezierCurveTo(-5, 25, -50, 10, -50, -15);
+  ctx.bezierCurveTo(-50, -40, -25, -50, 0, -25);
+  ctx.bezierCurveTo(25, -50, 50, -40, 50, -15);
+  ctx.bezierCurveTo(50, 10, 5, 25, 0, 35);
+  ctx.fill();
+  ctx.restore();
+}
+
+function saveCanvas(canvas, filename) {
+  const a = document.createElement('a');
+  a.download = filename;
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+}
+
+const c192 = document.getElementById('c192');
+const c512 = document.getElementById('c512');
+drawIcon(c192);
+drawIcon(c512);
+
+setTimeout(() => {
+  saveCanvas(c192, 'icon-192.png');
+  setTimeout(() => {
+    saveCanvas(c512, 'icon-512.png');
+    document.getElementById('msg').textContent = '✅ 两个图标已下载！把 icon-192.png 和 icon-512.png 放到和 love_app.html 同一个文件夹里即可。';
+  }, 500);
+}, 300);
+</script>
+</body>
+</html>
