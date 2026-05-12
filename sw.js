@@ -1,6 +1,6 @@
-const CACHE = 'love-app-v3';
+const CACHE = 'love-app-v4';
 const ASSETS = [
-  './love_app.html',
+  './index.html',
   './manifest.json'
 ];
 
